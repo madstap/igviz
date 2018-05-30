@@ -4,7 +4,7 @@ Integrant visualization.
 
 ## Usage
 
-Dependency `[madstap.igviz "0.1.0"]`
+Dependency `[igviz "0.1.0"]`
 
 ```clojure
 (ns foo.bar
