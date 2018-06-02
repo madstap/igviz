@@ -9,13 +9,10 @@
   (:import
    (java.io File)))
 
-(def ref?
-  (partial instance? integrant.core.Ref))
-
 (defn compile-graph [config]
   (reduce-kv (fn [acc k v]
                (comfy/postwalk-transduce
-                (comp (filter ref?) (map :key))
+                (comp (filter ig/ref?) (map :key))
                 (completing #(conj %1 [k %2]))
                 acc, v))
              [], config))
@@ -49,4 +46,4 @@
 
      (when open? (browse-url url))
 
-     config)))
+     nil)))
