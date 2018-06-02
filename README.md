@@ -1,6 +1,7 @@
 # igviz
 
-Integrant visualization.
+Tiny library for visualizing an [integrant](https://github.com/weavejester/integrant) system.
+The integrant equivalent of [system-viz](https://github.com/walmartlabs/system-viz).
 
 ## Usage
 
@@ -23,6 +24,13 @@ Dependency `[igviz "0.1.0"]`
   )
 ```
 
+Which will be visualized like this:
+
+![A vizualization of an example system](example.svg)
+
+## Contributing
+
+PRs and feature requests welcome.
 
 ## License
 
