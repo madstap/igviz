@@ -28,6 +28,14 @@ Which will be visualized like this:
 
 ![A vizualization of an example system](example.svg)
 
+Use of this project requires that [Graphviz](http://www.graphviz.org) is installed, which can be checked by running `dot -V` at the command line.  If it's not installed, you can do the following:
+
+| platform | directions |
+|----------|------------|
+| Linux | install `graphviz` using your package manager |
+| OS X | use `brew install graphiz` or [download the installer](http://www.graphviz.org/Download_macos.php) |
+| Windows | [download the installer](http://www.graphviz.org/Download_windows.php) |
+
 ## Contributing
 
 PRs and feature requests welcome.
