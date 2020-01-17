@@ -6,6 +6,7 @@
    [tangle.core :as tangle]
    [clojure.java.browse :refer [browse-url]]
    [clojure.java.io :as io]
+   [weavejester.dependency :as dep]
    [medley.core :as medley]
    [madstap.comfy :as comfy :refer [defs]]
    [clojure.java.io :as io]))
@@ -98,15 +99,32 @@
 (defn eog [path]
   (future (sh/sh "eog" path)))
 
+(defn keyset->component-keys [config ks]
+  (->> ks
+       (mapcat (partial ig/find-derived config))
+       (map first)
+       (set)))
+
+(defn transitive-deps-inclusive [config ks]
+  (let [components (keyset->component-keys config ks)]
+    (-> (ig/dependency-graph config)
+        (dep/transitive-dependencies-set components)
+        (into components))))
+
+(defn select-components [config ks]
+  (select-keys config (transitive-deps-inclusive config ks)))
+
 (comment
   (require '[kafka :refer [config]])
 
-  (-> (system-dot config {:kafka/topic {:color  :red
-                                        :shape  :box
-                                        :height 0.5
-                                        :width  4
-                                        }
-                          :kafka/db    {:shape :cylinder}})
+  (-> config
+      (select-components #{:kafka/error-component})
+      (system-dot {:kafka/topic {:color  :red
+                                 :shape  :box
+                                 :height 0.5
+                                 :width  4
+                                 }
+                   :kafka/db    {:shape :cylinder}})
       (create-img "examples/hello.png"))
 
   (def *s
