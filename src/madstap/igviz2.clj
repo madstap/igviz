@@ -38,27 +38,6 @@
                    ::name       (pr-str k)}])))
         (keys config)))
 
-(def k :kafka/topic)
-
-(defn derived-ids [config k]
-  (->> (ig/find-derived config k)
-       (map first)
-       (map #'ig/normalize-key)))
-
-(comment
-  (defn update-derived-nodes [nodes k f & args]
-    (reduce (fn [nds derived-k]
-              (apply update nds derived-k f args))
-            nodes
-            (derived-ids nodes k))))
-
-(defn partialf
-  "Given a function f and one less than the normal arguments of f as args,
-  returns a function of one argument x that invokes (f x arg1 arg2 argN...)"
-  [f & args]
-  (fn [x]
-    (apply f x args)))
-
 (defn derivee?
   [key candidate]
   (ig/derived-from? candidate key))
