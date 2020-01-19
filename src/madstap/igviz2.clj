@@ -10,7 +10,8 @@
    [weavejester.dependency :as dep]
    [medley.core :as medley]
    [madstap.comfy :as comfy :refer [defs]]
-   [clojure.java.io :as io]))
+   [clojure.java.io :as io]
+   [clojure.string :as str]))
 
 (defn pp-str [x]
   (with-out-str
@@ -25,7 +26,7 @@
    (dependencies->edges mm identity))
   ([mm f]
    (vec (for [[k vs] mm, v vs]
-          [(f k) (f v) {:label "foo"}]))))
+          [(f k) (f v)]))))
 
 (defn method-class [k]
   (some-> (get-method ig/init-key k) (bean) :class))
@@ -38,16 +39,15 @@
 
 (defn config->nodes [config]
   (map (fn [[k conf]]
-         #::{:key     k
-             :config  conf
-             :refs    (postwalk-into #{} (comp (filter ig/ref?)    (map :key)) conf)
-             :refsets (postwalk-into #{} (comp (filter ig/refset?) (map :key)) conf)
-             :id      (#'ig/normalize-key k)
-             :name    (pr-str k)})
+         #::{:key         k
+             :config      conf
+             ::references (postwalk-into #{} (filter ig/reflike?) conf)
+             :id          (#'ig/normalize-key k)
+             :name        (pr-str k)})
        config))
 
 (defn un-normalizer [config]
-  (into {} (juxt ::id ::key) (config->nodes config)))
+  (into {} (map (juxt ::id ::key)) (config->nodes config)))
 
 (defn assoc-edge [edges ])
 
@@ -96,14 +96,37 @@
   (select-keys config (transitive-deps-inclusive config ks {:include-refsets?
                                                             include-refsets?})))
 
-(defn dot [config {:keys [hierarchy selected-components derived-attrs node]
-                   :or   {hierarchy @#'clojure.core/global-hierarchy
-                          node      {:shape :oval}}}]
-  (let [conf (cond-> config
-               (seq selected-components)
-               (select-components selected-components {:include-refsets? false}))]
+(defn edge-refs [id->node src dest]
+  (->> (::references (id->node src))
+       (filter #(ig/derived-from? dest (ig/ref-key %)))))
+
+(defn ref-str [reflike]
+  (str (cond (ig/ref? reflike)    "#ig/ref"
+             (ig/refset? reflike) "#ig/refset")
+       " "
+       (pr-str (ig/ref-key reflike))))
+
+(defn refs-str [refs]
+  (condp #(<= %1 (count %2)) refs
+    2 (str "#{" (->> refs (map ref-str) (str/join ", ")) "}")
+    1 (ref-str (first refs))))
+
+(defn dot [config {:keys [hierarchy selected-components derived-attrs node
+                          label-edges?]
+                   :or   {hierarchy    @#'clojure.core/global-hierarchy
+                          node         {:shape :oval}
+                          label-edges? true}}]
+  (let [conf     (cond-> config
+                   (seq selected-components)
+                   ;; FIXME: In ig/init, components that are only depended
+                   ;;        upon via refsets aren't included in the config,
+                   ;;        but even though we pass that option we're still
+                   ;;        including them.
+                   (select-components selected-components {:include-refsets? false}))
+        nodes    (config->nodes conf)
+        id->node (medley/index-by ::id nodes)]
     (tangle/graph->dot
-     (config->nodes conf)
+     nodes
      (config->edges conf)
      {:node             node
       :directed?        true
@@ -112,10 +135,11 @@
                               n    ::name
                               conf ::config
                               :as  x}]
-                          (merge {:label (str n "\n" (pp-str x))}
+                          (merge {:label (str n "\n" #_(pp-str x))}
                                  (merge-derivees derived-attrs k)))
-      :edge->descriptor (fn [src dest opts]
-                          {:label (name dest)})})))
+      :edge->descriptor (fn [src dest _]
+                          (cond-> {}
+                            label-edges? (assoc :label (refs-str (edge-refs id->node src dest)))))})))
 
 
 (comment
@@ -124,16 +148,20 @@
   (methods ig/init-key)
 
   (-> config
-      (dot {;; :selected-components #{:kafka/server}
+      (dot {:selected-components #{:kafka/server}
             :derived-attrs {:kafka/topic {:color  :red
                                           :shape  :box
                                           :height 0.5
                                           :width  4}
-                            :kafka/db    {:shape :cylinder}}})
+                            :kafka/db    {:shape :cylinder}}
+            :label-edges? false
+            })
       (create-img "kafka-sys3.png"))
 
+  (ig/init config [:kafka/server])
+
   (def *s
-    (eog "kafka-sys.png"))
+    (eog "kafka-sys3.png"))
 
   (derive :kafka/foo-topic :kafka/topic)
 

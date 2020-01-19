@@ -17,7 +17,9 @@
    ::server                 {:db         (ig/ref ::db)
                              :cache      (ig/ref ::cache)
                              :daemons    (ig/ref :duct/daemon)
-                             :all-topics (ig/refset ::topic)}
+                             :all-topics (ig/refset ::topic)
+                             ;; :all-consumers (ig/refset ::consumer)
+                             }
    [::consumer1 ::consumer] {:topics [(ig/ref ::foo-topic)
                                       (ig/ref ::bar-topic)]}
    [::consumer2 ::consumer] {:topics [(ig/ref ::foo-topic)

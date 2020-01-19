@@ -8,7 +8,7 @@
            integrant/repl              {:mvn/version "0.3.1"}
            dorothy                     {:mvn/version "0.0.7"}
            madstap/comfy               {:mvn/version "1.0.5"}
-           medley                      {:mvn/version "1.1.0"}
+           medley                      {:mvn/version "1.2.0"}
            rhizome                     {:mvn/version "0.2.9"}
            macroz/tangle               {;; :mvn/version "0.2.1"
                                         ;; :local/root  "../tangle"
