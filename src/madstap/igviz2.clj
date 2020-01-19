@@ -1,6 +1,7 @@
 (ns madstap.igviz2
   (:require
    [clojure.java.shell :as sh]
+   [clojure.pprint :refer [pprint]]
    [integrant.core :as ig]
    [integrant.repl :as ig.repl]
    [tangle.core :as tangle]
@@ -11,6 +12,10 @@
    [madstap.comfy :as comfy :refer [defs]]
    [clojure.java.io :as io]))
 
+(defn pp-str [x]
+  (with-out-str
+    (pprint (if (map? x) (into (sorted-map) x) x))))
+
 (defn create-img [dot file]
   (io/copy (tangle/dot->image dot "png")
            (io/file file)))
@@ -20,27 +25,38 @@
    (dependencies->edges mm identity))
   ([mm f]
    (vec (for [[k vs] mm, v vs]
-          [(f k) (f v)]))))
+          [(f k) (f v) {:label "foo"}]))))
 
 (defn method-class [k]
   (some-> (get-method ig/init-key k) (bean) :class))
 
 (defn config->edges [config]
-  (-> config ig/dependency-graph :dependencies (dependencies->edges #'ig/normalize-key)))
+  (-> config (ig/dependency-graph) :dependencies (dependencies->edges #'ig/normalize-key)))
+
+(defn postwalk-into [to xf from]
+  (comfy/postwalk-transduce xf conj to from))
 
 (defn config->nodes [config]
-  (into {}
-        (map (fn [k]
-               (let [normalized (#'ig/normalize-key k)]
-                 [normalized
-                  {::key        k
-                   ::normalized normalized
-                   ::name       (pr-str k)}])))
-        (keys config)))
+  (map (fn [[k conf]]
+         #::{:key     k
+             :config  conf
+             :refs    (postwalk-into #{} (comp (filter ig/ref?)    (map :key)) conf)
+             :refsets (postwalk-into #{} (comp (filter ig/refset?) (map :key)) conf)
+             :id      (#'ig/normalize-key k)
+             :name    (pr-str k)})
+       config))
+
+(defn un-normalizer [config]
+  (into {} (juxt ::id ::key) (config->nodes config)))
+
+(defn assoc-edge [edges ])
 
 (defn derivee?
   [key candidate]
   (ig/derived-from? candidate key))
+
+(defn ancestors-inclusive [k]
+  (conj (ancestors k) k))
 
 (defn merge-derivees [m k]
   (->> m
@@ -59,22 +75,6 @@
                                              (pr-str y) ".")
                                     y)))))
 
-;; TODO: better name, generalize
-(defn system-dot
-  ([config node->descriptor]
-   (system-dot config @#'clojure.core/global-hierarchy node->descriptor))
-  ([config hierarchy node->descriptor]
-   (tangle/graph->dot
-    (config->nodes config)
-    (config->edges config)
-    {:node             {:shape :oval}
-     :directed?        true
-     :node->id         (fn [[id _]] id)
-     :node->descriptor (fn [[_ {k   ::key
-                                n   ::name
-                                :as node}]]
-                         (merge {:label n} (merge-derivees node->descriptor k)))})))
-
 (defn eog [path]
   (future (sh/sh "eog" path)))
 
@@ -84,30 +84,74 @@
        (map first)
        (set)))
 
-(defn transitive-deps-inclusive [config ks]
+(defn transitive-deps-inclusive [config ks {:keys [include-refsets?]
+                                            :or   {include-refsets? false}}]
   (let [components (keyset->component-keys config ks)]
-    (-> (ig/dependency-graph config)
+    (-> (ig/dependency-graph config {:include-refsets? include-refsets?})
         (dep/transitive-dependencies-set components)
         (into components))))
 
-(defn select-components [config ks]
-  (select-keys config (transitive-deps-inclusive config ks)))
+(defn select-components [config ks {:keys [include-refsets?]
+                                    :or   {include-refsets? false}}]
+  (select-keys config (transitive-deps-inclusive config ks {:include-refsets?
+                                                            include-refsets?})))
+
+(defn dot [config {:keys [hierarchy selected-components derived-attrs node]
+                   :or   {hierarchy @#'clojure.core/global-hierarchy
+                          node      {:shape :oval}}}]
+  (let [conf (cond-> config
+               (seq selected-components)
+               (select-components selected-components {:include-refsets? false}))]
+    (tangle/graph->dot
+     (config->nodes conf)
+     (config->edges conf)
+     {:node             node
+      :directed?        true
+      :node->id         ::id
+      :node->descriptor (fn [{k    ::key
+                              n    ::name
+                              conf ::config
+                              :as  x}]
+                          (merge {:label (str n "\n" (pp-str x))}
+                                 (merge-derivees derived-attrs k)))
+      :edge->descriptor (fn [src dest opts]
+                          {:label (name dest)})})))
+
 
 (comment
   (require '[kafka :refer [config]])
 
+  (methods ig/init-key)
+
   (-> config
-      (select-components #{:kafka/error-component})
+      (dot {;; :selected-components #{:kafka/server}
+            :derived-attrs {:kafka/topic {:color  :red
+                                          :shape  :box
+                                          :height 0.5
+                                          :width  4}
+                            :kafka/db    {:shape :cylinder}}})
+      (create-img "kafka-sys3.png"))
+
+  (def *s
+    (eog "kafka-sys.png"))
+
+  (derive :kafka/foo-topic :kafka/topic)
+
+  (-> config
+      ;; (select-components #{:kafka/error-component})
+      ;; (select-components #{:kafka/server})
+      (select-components #{[:kafka/consumer1 :kafka/consumer]})
       (system-dot {:kafka/topic {:color  :red
                                  :shape  :box
                                  :height 0.5
-                                 :width  4
-                                 }
+                                 :width  4}
                    :kafka/db    {:shape :cylinder}})
-      (create-img "examples/hello.png"))
+      (create-img "examples/hello-s.png"))
+
+  (get-method ig/init-key :kafka/foo-topic)
 
   (def *s
-    (eog "examples/hello.png"))
+    (eog "examples/hello-s.png"))
 
   @*s
 

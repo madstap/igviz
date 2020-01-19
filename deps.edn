@@ -10,5 +10,8 @@
            madstap/comfy               {:mvn/version "1.0.5"}
            medley                      {:mvn/version "1.1.0"}
            rhizome                     {:mvn/version "0.2.9"}
-           macroz/tangle               {:mvn/version "0.2.1"}}
+           macroz/tangle               {;; :mvn/version "0.2.1"
+                                        ;; :local/root  "../tangle"
+                                        :git/url "https://github.com/madstap/tangle.git"
+                                        :sha     "f75cffe91577236cd5494ddc2b0966b4a4cdb3bc"}}
  :aliases {:dev {:extra-paths ["examples"]}}}
