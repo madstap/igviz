@@ -46,11 +46,6 @@
              :name        (pr-str k)})
        config))
 
-(defn un-normalizer [config]
-  (into {} (map (juxt ::id ::key)) (config->nodes config)))
-
-(defn assoc-edge [edges ])
-
 (defn derivee?
   [key candidate]
   (ig/derived-from? candidate key))
