@@ -37,13 +37,19 @@
 (defn postwalk-into [to xf from]
   (comfy/postwalk-transduce xf conj to from))
 
+(defn required-namespaces [k]
+  (->> (#'ig/key->namespaces k)
+       (keep #'ig/try-require)
+       (into (sorted-set))))
+
 (defn config->nodes [config]
   (map (fn [[k conf]]
-         #::{:key         k
-             :config      conf
-             ::references (postwalk-into #{} (filter ig/reflike?) conf)
-             :id          (#'ig/normalize-key k)
-             :name        (pr-str k)})
+         #::{:key        k
+             :config     conf
+             :required   (required-namespaces k)
+             :references (postwalk-into #{} (filter ig/reflike?) conf)
+             :id         (#'ig/normalize-key k)
+             :name       (pr-str k)})
        config))
 
 (defn derivee?
@@ -117,9 +123,9 @@
                           derived-attrs derived-show-config
                           node label-edges?
                           include-refsets?]
-                   :or   {hierarchy    @#'clojure.core/global-hierarchy
-                          node         {:shape :oval}
-                          label-edges? true
+                   :or   {hierarchy        @#'clojure.core/global-hierarchy
+                          node             {:shape :oval}
+                          label-edges?     true
                           include-refsets? false}}]
   (let [conf     (cond-> config
                    (seq selected-components)
@@ -137,15 +143,16 @@
      {:node             node
       :directed?        true
       :node->id         ::id
-      :node->descriptor (fn [{k    ::key
-                              n    ::name
-                              conf ::config
-                              :as  x}]
+      :node->descriptor (fn [{k        ::key
+                              n        ::name
+                              conf     ::config
+                              required ::required
+                              :as      x}]
                           (merge {:label (str n "\n"
-                                              (when (map? conf)
-                                                (-> conf
-                                                    (select-keys (derivee-set derived-show-config k))
-                                                    (not-empty))))}
+                                              (when required (str "ns: " required)) "\n"
+                                              (-> (when (map? conf) conf)
+                                                  (select-keys (derivee-set derived-show-config k))
+                                                  (not-empty)))}
                                  (merge-derivees derived-attrs k)))
       :edge->descriptor (fn [src dest _]
                           (cond-> {}
@@ -158,7 +165,7 @@
   (methods ig/init-key)
 
   (-> config
-      (dot {:selected-components #{:kafka/server :duct/daemon}
+      (dot { :selected-components #{:kafka/server :duct/daemon}
             ;; :include-refsets?    true
             :derived-attrs       {:kafka/topic {:color  :red
                                                 :shape  :box
