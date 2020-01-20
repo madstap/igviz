@@ -101,8 +101,8 @@
 
 (defn select-components [config ks {:keys [include-refsets?]
                                     :or   {include-refsets? false}}]
-  (select-keys config (transitive-deps-inclusive config ks {:include-refsets?
-                                                            include-refsets?})))
+  (let [deps (transitive-deps-inclusive config ks {:include-refsets? include-refsets?})]
+    (-> config (select-keys deps))))
 
 (defn edge-refs [id->node src dest]
   (->> (::references (id->node src))
@@ -146,9 +146,10 @@
                               :as      x}]
                           (merge {:label (str n "\n"
                                               (when required (str "ns: " required)) "\n"
-                                              (-> (when (map? conf) conf)
-                                                  (select-keys (derivee-set derived-show-config k))
-                                                  (not-empty)))}
+                                              (when (map? conf)
+                                                (-> conf
+                                                    (select-keys (derivee-set derived-show-config k))
+                                                    (not-empty))))}
                                  (merge-derivees derived-attrs k)))
       :edge->descriptor (fn [src dest _]
                           (cond-> {}
