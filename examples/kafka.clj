@@ -16,7 +16,7 @@
    ::cache                  {:url "..."}
    ::server                 {:db         (ig/ref ::db)
                              :cache      (ig/ref ::cache)
-                             :daemons    (ig/ref :duct/daemon)
+                             :daemons    (ig/refset :duct/daemon)
                              :all-topics (ig/refset ::topic)
                              ;; :all-consumers (ig/refset ::consumer)
                              }

@@ -58,6 +58,13 @@
 (defn ancestors-inclusive [k]
   (conj (ancestors k) k))
 
+(defn derivee-set [m k]
+  (->> m
+       (medley/filter-keys #(derivee? % k))
+       (vals)
+       (mapcat seq)
+       (set)))
+
 (defn merge-derivees [m k]
   (->> m
        (medley/filter-keys #(derivee? % k))
@@ -111,8 +118,9 @@
     2 (str "#{" (->> refs (map ref-str) (str/join ", ")) "}")
     1 (ref-str (first refs))))
 
-(defn dot [config {:keys [hierarchy selected-components derived-attrs node
-                          label-edges?]
+(defn dot [config {:keys [hierarchy selected-components
+                          derived-attrs derived-show-config
+                          node label-edges?]
                    :or   {hierarchy    @#'clojure.core/global-hierarchy
                           node         {:shape :oval}
                           label-edges? true}}]
@@ -135,7 +143,10 @@
                               n    ::name
                               conf ::config
                               :as  x}]
-                          (merge {:label (str n "\n" #_(pp-str x))}
+                          (merge {:label (str n "\n"
+                                              (-> conf
+                                                  (select-keys (derivee-set derived-show-config k))
+                                                  (not-empty)))}
                                  (merge-derivees derived-attrs k)))
       :edge->descriptor (fn [src dest _]
                           (cond-> {}
@@ -148,13 +159,14 @@
   (methods ig/init-key)
 
   (-> config
-      (dot {:selected-components #{:kafka/server}
-            :derived-attrs {:kafka/topic {:color  :red
-                                          :shape  :box
-                                          :height 0.5
-                                          :width  4}
-                            :kafka/db    {:shape :cylinder}}
-            :label-edges? false
+      (dot {;; :selected-components #{:kafka/server}
+            :derived-attrs       {:kafka/topic {:color  :red
+                                                :shape  :box
+                                                :height 0.5
+                                                :width  4}
+                                  :kafka/db    {:shape :cylinder}}
+            :derived-show-config {:kafka/topic #{:topic-name}}
+            ;; :label-edges?        false
             })
       (create-img "kafka-sys3.png"))
 
