@@ -120,17 +120,20 @@
 
 (defn dot [config {:keys [hierarchy selected-components
                           derived-attrs derived-show-config
-                          node label-edges?]
+                          node label-edges?
+                          include-refsets?]
                    :or   {hierarchy    @#'clojure.core/global-hierarchy
                           node         {:shape :oval}
-                          label-edges? true}}]
+                          label-edges? true
+                          include-refsets? false}}]
   (let [conf     (cond-> config
                    (seq selected-components)
                    ;; FIXME: In ig/init, components that are only depended
                    ;;        upon via refsets aren't included in the config,
                    ;;        but even though we pass that option we're still
                    ;;        including them.
-                   (select-components selected-components {:include-refsets? false}))
+                   (select-components selected-components {:include-refsets?
+                                                           include-refsets?}))
         nodes    (config->nodes conf)
         id->node (medley/index-by ::id nodes)]
     (tangle/graph->dot
@@ -159,7 +162,8 @@
   (methods ig/init-key)
 
   (-> config
-      (dot {;; :selected-components #{:kafka/server}
+      (dot {:selected-components #{:kafka/server :duct/daemon}
+            ;; :include-refsets?    true
             :derived-attrs       {:kafka/topic {:color  :red
                                                 :shape  :box
                                                 :height 0.5
@@ -168,12 +172,16 @@
             :derived-show-config {:kafka/topic #{:topic-name}}
             ;; :label-edges?        false
             })
-      (create-img "kafka-sys3.png"))
+      (create-img "kafka-sys4.png"))
 
   (ig/init config [:kafka/server])
 
   (def *s
-    (eog "kafka-sys3.png"))
+    (eog "kafka-sys4.png"))
+
+  (select-components config #{:kafka/server} {:include-refsets? true})
+
+  (select-components config #{:kafka/server} {:include-refsets? false})
 
   (derive :kafka/foo-topic :kafka/topic)
 
