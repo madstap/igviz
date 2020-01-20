@@ -147,9 +147,10 @@
                               conf ::config
                               :as  x}]
                           (merge {:label (str n "\n"
-                                              (-> conf
-                                                  (select-keys (derivee-set derived-show-config k))
-                                                  (not-empty)))}
+                                              (when (map? conf)
+                                                (-> conf
+                                                    (select-keys (derivee-set derived-show-config k))
+                                                    (not-empty))))}
                                  (merge-derivees derived-attrs k)))
       :edge->descriptor (fn [src dest _]
                           (cond-> {}
