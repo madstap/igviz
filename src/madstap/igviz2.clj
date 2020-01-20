@@ -129,10 +129,6 @@
                           include-refsets? false}}]
   (let [conf     (cond-> config
                    (seq selected-components)
-                   ;; FIXME: In ig/init, components that are only depended
-                   ;;        upon via refsets aren't included in the config,
-                   ;;        but even though we pass that option we're still
-                   ;;        including them.
                    (select-components selected-components {:include-refsets?
                                                            include-refsets?}))
         nodes    (config->nodes conf)
