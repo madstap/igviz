@@ -86,11 +86,15 @@
 (defn eog [path]
   (future (sh/sh "eog" path)))
 
+;; adding generic way to open files on x to visualize
+(defn xdg-open-file [path]
+  (future (sh/sh "xdg-open" path)))
+
 (defn keyset->component-keys [config ks]
   (->> ks
-       (mapcat (partial ig/find-derived config))
-       (map first)
-       (set)))
+     (mapcat (partial ig/find-derived config))
+     (map first)
+     (set)))
 
 (defn transitive-deps-inclusive [config ks {:keys [include-refsets?]
                                             :or   {include-refsets? false}}]
