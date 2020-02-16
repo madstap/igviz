@@ -11,7 +11,10 @@
    [medley.core :as medley]
    [madstap.comfy :as comfy :refer [defs]]
    [clojure.java.io :as io]
-   [clojure.string :as str]))
+   ;; [ubergraph.core :as uber]
+   [clojure.string :as str]
+   [meta-merge.core :refer [meta-merge]]
+   [clojure.alpha.spec :as s]))
 
 (defn pp-str [x]
   (with-out-str
@@ -32,7 +35,10 @@
   (some-> (get-method ig/init-key k) (bean) :class))
 
 (defn config->edges [config]
-  (-> config (ig/dependency-graph) :dependencies (dependencies->edges #'ig/normalize-key)))
+  (-> config
+      (ig/dependency-graph)
+      :dependencies
+      (dependencies->edges #'ig/normalize-key)))
 
 (defn postwalk-into [to xf from]
   (comfy/postwalk-transduce xf conj to from))
@@ -47,7 +53,9 @@
          #::{:key        k
              :config     conf
              :required   (required-namespaces k)
-             :references (postwalk-into #{} (filter ig/reflike?) conf)
+             :references (postwalk-into #{}
+                                        (filter ig/reflike?)
+                                        conf)
              :id         (#'ig/normalize-key k)
              :name       (pr-str k)})
        config))
@@ -161,12 +169,127 @@
 
 
 (comment
+
+  (meta-merge {:bar "green"}
+              {:bar "blue"
+               :baz 1233})
+
   (require '[kafka :refer [config]])
 
   (methods ig/init-key)
 
+  (defmethod ig/init-key :kafka/consumer1 [_ _] {})
+
+  :op
+  #{:select
+    ;; Selects nodes to be included in the graph
+    :merge-attrs
+    ;; merge graphviz node attrs using meta-merge
+    :show-config
+    ;; Takes a set of keys to be selected using select-keys from the value
+    ;; (presumably a map) of the components in the config.
+    }
+
+  ;; Should there be non-inclusive versions of :dependencies and :dependents?
+  :selector
+  #{:dependencies
+    ;; Selects the dependencies of components derived from a set of keys
+    :dependents
+    ;; Selects the dependents of components derived from a set of keys
+    :derived
+    ;; Given a set, selects the components derived from any of the keys (OR).
+    ;; Given a vector, selects the components derived from all of the keys (AND).
+    }
+
+
+
+  (defn record->tx [{:keys [_ value offset partition topic-name timestamp]}]
+    (let [{:pgo.tx-paygo-web/keys [id] :as parsed}
+          (medley/remove-vals nil? (parse-tx-web value))
+          ts-inst (java.util.Date. timestamp)
+          kafka-metadata #:pgo.kafka{:offset     offset
+                                     :partition  partition
+                                     :topic-name topic-name
+                                     :timestamp  ts-inst}]
+      {:pgo.tx-paygo-web/data-source kafka-metadata
+       :pgo.tx-paygo-web/id id
+       :pgo.tx-unified/id            (pg-web-id/pg-web->uuid parsed)}))
+
+  (meta-merge #{1 2} [4])
+
+
+  {:rules {:ks      {:kafka/server {:select nil}}
+           :derived {:kafka/topic {:merge-attrs {:color  :red
+                                                 :shape  :box
+                                                 :height 0.5
+                                                 :width  4}
+                                   :show-config #{:topic-name}}
+                     :kafka/db    {:merge-attrs {:shape :cylinder}
+                                   :show-config #{:db-name}}}}}
+
+  {:rules [[:derived [[:kafka/db    [[:merge-attrs {:shape :cylinder}]
+                                     [:show-config #{:db-name}]]]]]
+           [:ks      [[:kafka/server [[:select nil]]]]]
+           [:derived [[:kafka/topic [[:merge-attrs {:color  :red
+                                                    :shape  :box
+                                                    :height 0.5
+                                                    :width  4}]
+                                     [:show-config #{:topic-name}]]]]]]}
+
+
+
+
+  {:rules {[:ks :kafka/server]     {:select nil}
+           [:derived :kafka/topic] {:merge-attrs {:color  :red
+                                                  :shape  :box
+                                                  :height 0.5
+                                                  :width  4}
+                                    :show-config #{:topic-name}}
+           [:derived :kafka/db]    {:merge-attrs {:shape :cylinder}}}}
+
+
+
+
+
+  [[:select :dependencies]
+   [:select :dependents]
+   [:merge-attrs :derived]
+   [:show-config :derived]]
+
+  ;; Select with a map means OR, and a vector means AND
+  {:dependencies {:select #{:kafka/server}}
+   :dependents {:merge-attrs #{}}
+   :derived      {:merge-attrs {:kafka/topic {:color  :red
+                                              :shape  :box
+                                              :height 0.5
+                                              :width  4}}}}
+
+  [:dependencies :select]
+  [:dependents :select]
+  [:derived :merge-attrs]
+  [:derived :show-config]
+  :label-edges?
+
+  [ {:dependencies #{:kafka/server :duct/daemon}}]
+
+  {:select {:dependencies #{:kafka/server :duct/daemon}}
+   :merge-attrs {:derived {:kafka/topic {:color  :red
+                                         :shape  :box
+                                         :height 0.5
+                                         :width  4}
+                           :kafka/db    {:shape :cylinder}}}
+   ;; :include-refsets?    true
+   :derived-attrs       {:kafka/topic {:color  :red
+                                       :shape  :box
+                                       :height 0.5
+                                       :width  4}
+                         :kafka/db    {:shape :cylinder}}
+   :derived-show-config {:kafka/topic #{:topic-name}}
+   ;; :label-edges?        false
+   }
+
   (-> config
-      (dot { :selected-components #{:kafka/server :duct/daemon}
+      (dot {:selected-components #{:kafka/server :duct/daemon}
             ;; :include-refsets?    true
             :derived-attrs       {:kafka/topic {:color  :red
                                                 :shape  :box
@@ -178,7 +301,13 @@
             })
       (create-img "kafka-sys4.png"))
 
-  (ig/init config [:kafka/server])
+  (ig/init config #_[:kafka/server])
+
+  (get-method ig/init-key :kafka/consumer)
+
+  (ancestors-inclusive (#'ig/normalize-key [:kafka/consumer1 :kafka/consumer]))
+
+  (remove-method ig/init-key :kafka/consumer1)
 
   (def *s
     (eog "kafka-sys4.png"))
@@ -203,11 +332,11 @@
   (get-method ig/init-key :kafka/foo-topic)
 
   (def *s
-    (eog "examples/hello-s.png"))
+    (eog "examples/hello-s.png")))
 
-  @*s
+@*s
 
-  )
+
 
 (comment
 
@@ -219,6 +348,8 @@
 
   ;; Then a mapping between participant keys and actual components.
 
+  (config->nodes config)
+
   (-> (tangle/graph->dot
        {}
        (dependencies->edges ps)
@@ -227,6 +358,8 @@
         :node->id         pr-str
         :node->descriptor (fn [n] {:label (pr-str n)})})
       (create-img "examples/hello.png"))
+
+  (eog "examples/hello.png")
 
   (defs {:keys [dependencies dependents]}
     (ig/dependency-graph config))

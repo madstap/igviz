@@ -1,7 +1,8 @@
 {:paths   ["src"]
  :deps    {org.clojure/clojure         {:mvn/version "1.10.1"}
-           org.clojure/alpha.spec      {:git/url "https://github.com/clojure/spec-alpha2.git"
-                                        :sha     "b644e4d8c5553e10544d920306690fffe9b53e15"}
+           org.clojure/alpha.spec
+           {:git/url "https://github.com/clojure/spec-alpha2.git"
+            :sha     "b644e4d8c5553e10544d920306690fffe9b53e15"}
            org.clojure/tools.namespace {:mvn/version "0.3.1"}
            ubergraph                   {:mvn/version "0.8.2"}
            integrant                   {:mvn/version "0.8.0"}
@@ -10,8 +11,6 @@
            madstap/comfy               {:mvn/version "1.0.5"}
            medley                      {:mvn/version "1.2.0"}
            rhizome                     {:mvn/version "0.2.9"}
-           macroz/tangle               {;; :mvn/version "0.2.1"
-                                        ;; :local/root  "../tangle"
-                                        :git/url "https://github.com/madstap/tangle.git"
-                                        :sha     "f75cffe91577236cd5494ddc2b0966b4a4cdb3bc"}}
+           macroz/tangle               {:mvn/version "0.2.2"}
+           meta-merge                  {:mvn/version "1.0.0"}}
  :aliases {:dev {:extra-paths ["examples"]}}}
