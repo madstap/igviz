@@ -94,8 +94,8 @@
   (->> ks (mapcat (partial derived-nodes-1 nodes)) (set)))
 
 (defn fully-connected-edges [nodes edges]
-  (let [node-ks (set (map :igviz.node/key nodes))]
-    (set (filter (fn [{:igviz.edge/keys [src dest]}]
+  (let [node-ks (set nodes)]
+    (set (filter (fn [[src dest]]
                    (and (contains? node-ks src)
                         (contains? node-ks dest)))
                  edges))))
@@ -117,20 +117,22 @@
   (let [ks (if (set? ks) ks #{ks})
         node-deps (dependencies-inclusive graph ks true)]
     #:igviz.selected{:nodes node-deps
-                     :edges (fully-connected-edges node-deps edges)}))
+                     :edges (fully-connected-edges node-deps
+                                                   (map :igviz.edge/edge edges))}))
 
 (defmethod select :ks
   [_ {:igviz/keys [edges] :as graph} ks]
   (let [ks (if (set? ks) ks #{ks})
         node-deps (dependencies-inclusive graph ks false)]
     #:igviz.selected{:nodes node-deps
-                     :edges (fully-connected-edges node-deps edges)}))
+                     :edges (fully-connected-edges node-deps
+                                                   (map :igviz.edge/edge edges))}))
 
 (defmethod select :derived
   [_ {:igviz/keys [nodes edges]} ks]
   (let [ks         (if (coll? ks) (set ks) #{ks})
         derived-ns (derived-nodes nodes ks)
-        derived-es (fully-connected-edges derived-ns edges)]
+        derived-es (fully-connected-edges derived-ns (map :igviz.edge/edge edges))]
     #:igviz.selected{:nodes derived-ns
                      :edges derived-es}))
 
@@ -163,11 +165,12 @@
     (set (vals (reduce #(apply medley/update-existing %1 %2 f args) k->entity ks)))))
 
 (defn update-selected [graph selected f & args]
-  (reduce-kv (fn [g kind ks]
-               (let [ent-kind (selected-kind->entity-kind kind)]
-                 (assoc g ent-kind (update-entities g ent-kind (derived-component-keys config ks) f args))))
-             graph
-             selected))
+  (let [config (graph->config graph)]
+    (reduce-kv (fn [g kind ks]
+                 (let [ent-kind (selected-kind->entity-kind kind)]
+                   (assoc g ent-kind (update-entities g ent-kind (derived-component-keys config ks) f args))))
+               graph
+               selected)))
 
 (defmethod transform :merge-attrs
   [_ graph selected attrs]
@@ -222,11 +225,14 @@
                                                                :shape  :box
                                                                :height 0.5
                                                                :width  4}
-                                             #_#_:show-config [:topic-name]}
+                                             #_#_:show-config [:topic-name]
+                                             }
                                :kafka/db    {:merge-attrs {:shape :cylinder}
                                              ;; :show-config [:db-name]
                                              }}]
-                    [:ks {:kafka/consumer1 {:merge-attrs {:color :red}}}]]})
+                    [:ks {:kafka/consumer1 {:merge-attrs {:color :red}}}]
+                    [:ks {:kafka/error-component :select}]]})
+
 
   (def g (config->graph config))
 
