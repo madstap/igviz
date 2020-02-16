@@ -173,10 +173,15 @@
   [_ graph selected attrs]
   (update-selected graph selected update :igviz.dot/attrs merge attrs))
 
+(defn map-like? [x]
+  (or (map? x)
+      (and (vector? x)
+           (every? (every-pred vector? #(= 2 (count %))) x))))
+
 (defn expand-rules [rules]
   (for [[selector ops]            rules
         [selector-arg transforms] ops
-        [transform transform-arg] (if (map? transforms) transforms {transforms nil})]
+        [transform transform-arg] (if (map-like? transforms) transforms {transforms nil})]
     [selector selector-arg transform transform-arg]))
 
 (defn transform-graph [graph rules]
