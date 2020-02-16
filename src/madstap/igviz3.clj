@@ -7,6 +7,7 @@
    [clojure.string :as str]
    madstap.igviz.spec
    [clojure.java.shell :as sh]
+   [weavejester.dependency :as dep]
    [clojure.set :as set]))
 
 (defn dfs [pred coll]
@@ -99,6 +100,32 @@
                         (contains? node-ks dest)))
                  edges))))
 
+(defn graph->config [{:igviz/keys [nodes]}]
+  (into {} (map (juxt :igviz.node/key :igviz.node/config)) nodes))
+
+(defn dependencies-inclusive [{:igviz/keys [nodes] :as graph} ks include-refsets?]
+  (let [derived (derived-nodes nodes ks)
+        deps    (-> graph
+                    graph->config
+                    (ig/dependency-graph {:include-refsets? include-refsets?})
+                    (dep/transitive-dependencies-set derived))]
+    (into derived deps)))
+
+;; TODO: Better names for :dependencies and :ks
+(defmethod select :dependencies
+  [_ {:igviz/keys [edges] :as graph} ks]
+  (let [ks (if (set? ks) ks #{ks})
+        node-deps (dependencies-inclusive graph ks true)]
+    #:igviz.selected{:nodes node-deps
+                     :edges (fully-connected-edges node-deps edges)}))
+
+(defmethod select :ks
+  [_ {:igviz/keys [edges] :as graph} ks]
+  (let [ks (if (set? ks) ks #{ks})
+        node-deps (dependencies-inclusive graph ks false)]
+    #:igviz.selected{:nodes node-deps
+                     :edges (fully-connected-edges node-deps edges)}))
+
 (defmethod select :derived
   [_ {:igviz/keys [nodes edges]} ks]
   (let [ks         (if (coll? ks) (set ks) #{ks})
@@ -127,11 +154,6 @@
 (def selected-kind->entity-kind
   {:igviz.selected/nodes :igviz/nodes
    :igviz.selected/edges :igviz/edges})
-
-(defn- find-derived-refs [config v include-refsets?]
-  (->> (dfs (if include-refsets? ig/reflike? ig/ref?) v)
-       (map ig/ref-key)
-       (mapcat #(map key (ig/find-derived config %)))))
 
 (defn derived-component-keys [config ks]
   (mapcat #(map key (ig/find-derived config %)) ks))
