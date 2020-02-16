@@ -218,17 +218,19 @@
 
   (defs {:keys [rules] :as opts}
     {:label-edges? true
-     :rules        {;;:derived {#{:app/server} :select}
-                    :derived {:kafka/topic {:merge-attrs {:color  :red
-                                                          :shape  :box
-                                                          :height 0.5
-                                                          :width  4}
-                                            #_#_:show-config [:topic-name]}
-                              #_#_:app/db      {:merge-attrs {:shape :cylinder}
-                                                ;; :show-config [:db-name]
-                                                }}}})
+     :rules        [[:derived {:kafka/topic {:merge-attrs     {:color  :green
+                                                               :shape  :box
+                                                               :height 0.5
+                                                               :width  4}
+                                             #_#_:show-config [:topic-name]}
+                               :kafka/db    {:merge-attrs {:shape :cylinder}
+                                             ;; :show-config [:db-name]
+                                             }}]
+                    [:ks {:kafka/consumer1 {:merge-attrs {:color :red}}}]]})
 
-  (transform-graph (config->graph config) rules)
+  (def g (config->graph config))
+
+  (transform-graph g rules)
 
   (-> config config->graph (graph->dot opts) (create-img "sys.png"))
 
