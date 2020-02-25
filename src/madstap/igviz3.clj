@@ -157,6 +157,30 @@
   {:igviz.selected/nodes :igviz/nodes
    :igviz.selected/edges :igviz/edges})
 
+(defn map-set [s f]
+  (into #{} (map f) s))
+
+(defn graph->selection [graph]
+  (-> (reduce-kv (fn [g kind k]
+                   (medley/update-existing g kind map-set k))
+                 graph
+                 entity-kind->key)
+      (set/rename-keys (set/map-invert selected-kind->entity-kind))))
+
+(defmethod select :all
+  [_ graph _]
+  (graph->selection graph))
+
+(defmethod select :all-nodes
+  [_ graph _]
+  (-> (graph->selection graph) (select-keys [:igviz.selected/nodes])))
+
+(defmethod select :all-edges
+  [_ graph _]
+  (-> (graph->selection graph) (select-keys [:igviz.selected/edges])))
+
+(defn merge-configs [& configs]
+  (vec (mapcat seq configs)))
 
 (defn- update-entities [graph kind ks f args]
   (let [k->entity (medley/index-by (entity-kind->key kind) (kind graph))]
