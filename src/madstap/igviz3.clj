@@ -157,20 +157,17 @@
   {:igviz.selected/nodes :igviz/nodes
    :igviz.selected/edges :igviz/edges})
 
-(defn derived-component-keys [config ks]
-  (mapcat #(map key (ig/find-derived config %)) ks))
 
 (defn- update-entities [graph kind ks f args]
   (let [k->entity (medley/index-by (entity-kind->key kind) (kind graph))]
     (set (vals (reduce #(apply medley/update-existing %1 %2 f args) k->entity ks)))))
 
 (defn update-selected [graph selected f & args]
-  (let [config (graph->config graph)]
-    (reduce-kv (fn [g kind ks]
-                 (let [ent-kind (selected-kind->entity-kind kind)]
-                   (assoc g ent-kind (update-entities g ent-kind (derived-component-keys config ks) f args))))
-               graph
-               selected)))
+  (reduce-kv (fn [g kind ks]
+               (let [ent-kind (selected-kind->entity-kind kind)]
+                 (assoc g ent-kind (update-entities g ent-kind ks f args))))
+             graph
+             selected))
 
 (defmethod transform :merge-attrs
   [_ graph selected attrs]
