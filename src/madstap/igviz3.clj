@@ -173,41 +173,51 @@
   [_ graph selected attrs]
   (update-selected graph selected update :igviz.dot/attrs merge attrs))
 
-(defn map-like? [x]
-  (or (map? x)
-      (and (vector? x)
-           (every? (every-pred vector? #(= 2 (count %))) x))))
-
 (defn expand-rules [rules]
   (for [[selector ops]            rules
         [selector-arg transforms] ops
-        [transform transform-arg] (if (map-like? transforms) transforms {transforms nil})]
+        [transform transform-arg] (if (keyword? transforms)
+                                    {transforms nil}
+                                    transforms)]
     [selector selector-arg transform transform-arg]))
 
-(defn transform-graph [graph rules]
+(defn apply-rules [graph rules]
   (reduce (fn [g [sel sel-arg trans trans-arg]]
             (let [selected (select sel g sel-arg)]
               (transform trans g selected trans-arg)))
           graph
           (expand-rules rules)))
 
+(defn remove-labels [edges]
+  [edges]
+  (into #{} (map #(medley/dissoc-in % [:igviz.dot/attrs :label])) edges))
+
+(defn transform-graph [graph {:keys [rules label-edges?]
+                              :or   {label-edges? true}}]
+  (-> graph
+      (apply-rules rules)
+      (cond-> (not label-edges?)
+        (update :igviz/edges remove-labels))))
+
+(defn dot-edges [edges]
+  (map (fn [{:igviz.edge/keys [src-id dest-id]
+             :igviz.dot/keys [attrs]}]
+         [src-id dest-id attrs])
+       edges))
+
 (defn graph->dot
-  [graph {:keys [rules node label-edges?]
-          :or   {node         {:shape :oval}
-                 label-edges? true}}]
-  (let [{:igviz/keys [nodes edges]} (transform-graph graph rules)
-        id->edge                    (medley/index-by :igviz.edge/id edges)]
+  [graph {:keys [node]
+          :or   {node {:shape :oval}}
+          :as   opts}]
+  (let [{:igviz/keys [nodes edges]} (transform-graph graph opts)]
     (tangle/graph->dot
      nodes
-     (map :igviz.edge/id edges)
+     (dot-edges edges)
      {:node             node
       :directed?        true
       :node->id         :igviz.node/id
       :node->descriptor :igviz.dot/attrs
-      :edge->descriptor (fn [src dest _]
-                          (-> (id->edge [src dest])
-                              :igviz.dot/attrs
-                              (cond-> (not label-edges?) (dissoc :label))))})))
+      :edge->descriptor (fn [_ _ attrs] attrs)})))
 
 (defn xdg-open [path]
   (future (sh/sh "xdg-open" path)))
