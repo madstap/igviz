@@ -140,6 +140,10 @@
   [_ graph ks]
   (-> (select :derived graph ks) (dissoc :igviz.selected/edges)))
 
+(defmethod select :derived-edges
+  [_ graph ks]
+  (-> (select :derived graph ks) (dissoc :igviz.selected/nodes)))
+
 (defn filter-set [pred coll]
   (into #{} (filter pred) coll))
 
@@ -166,6 +170,16 @@
                  graph
                  entity-kind->key)
       (set/rename-keys (set/map-invert selected-kind->entity-kind))))
+
+(comment
+
+  (graph->selection #:igviz{:nodes #{#:igviz.node{:key ::foo}
+                                     #:igviz.node{:key ::bar}}
+                            :edges #{#:igviz.edge{:edge [::foo ::bar]}}})
+
+
+  )
+
 
 (defmethod select :all
   [_ graph _]
