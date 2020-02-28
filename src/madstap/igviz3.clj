@@ -66,8 +66,7 @@
                                :dest-id         dest-id
                                :edge            edge
                                :id              id
-                               :refs            refs
-                               :igviz.dot/attrs {:label (refs-str refs)}}))
+                               :refs            refs}))
               edges*)]
     #:igviz{:nodes nodes, :edges edges}))
 
@@ -193,8 +192,8 @@
   [_ graph _]
   (-> (graph->selection graph) (select-keys [:igviz.selected/edges])))
 
-(defn merge-configs [& configs]
-  (vec (mapcat seq configs)))
+(defn compose [& rules]
+  (vec (mapcat seq rules)))
 
 (defn- update-entities [graph kind ks f args]
   (let [k->entity (medley/index-by (entity-kind->key kind) (kind graph))]
@@ -226,17 +225,6 @@
           graph
           (expand-rules rules)))
 
-(defn remove-labels [edges]
-  [edges]
-  (into #{} (map #(medley/dissoc-in % [:igviz.dot/attrs :label])) edges))
-
-(defn transform-graph [graph {:keys [rules label-edges?]
-                              :or   {label-edges? true}}]
-  (-> graph
-      (apply-rules rules)
-      (cond-> (not label-edges?)
-        (update :igviz/edges remove-labels))))
-
 (defn dot-edges [edges]
   (map (fn [{:igviz.edge/keys [src-id dest-id]
              :igviz.dot/keys [attrs]}]
@@ -244,46 +232,63 @@
        edges))
 
 (defn graph->dot
-  [graph {:keys [node]
-          :or   {node {:shape :oval}}
-          :as   opts}]
-  (let [{:igviz/keys [nodes edges]} (transform-graph graph opts)]
-    (tangle/graph->dot
-     nodes
-     (dot-edges edges)
-     {:node             node
-      :directed?        true
-      :node->id         :igviz.node/id
-      :node->descriptor :igviz.dot/attrs
-      :edge->descriptor (fn [_ _ attrs] attrs)})))
+  ([graph]       (graph->dot graph {}    {}))
+  ([graph rules] (graph->dot graph rules {}))
+  ([graph rules {:keys [node]
+                 :or   {node {:shape :oval}}}]
+   (let [{:igviz/keys [nodes edges]} (apply-rules graph rules)]
+     (tangle/graph->dot
+      nodes
+      (dot-edges edges)
+      {:node             node
+       :directed?        true
+       :node->id         :igviz.node/id
+       :node->descriptor :igviz.dot/attrs
+       :edge->descriptor (fn [_ _ attrs] attrs)}))))
 
 (defn xdg-open [path]
   (future (sh/sh "xdg-open" path)))
+
+(defmethod transform :label-refs
+  [op graph selected _]
+  (update-selected graph selected
+                   (fn [entity]
+                     (update-in entity [:igviz.dot/attrs :label]
+                                (fn [label]
+                                  (str label
+                                       (when-not (str/blank? label) \newline)
+                                       (refs-str (or (:igviz.edge/refs entity)
+                                                     (:igviz.node/refs entity)))))))))
+
+(def label-edges
+  {:all-edges {nil {:label-refs nil}}})
 
 (comment
   (require '[madstap.comfy :refer [defs]]
            '[kafka :refer [config]])
 
-  (defs {:keys [rules] :as opts}
-    {:label-edges? true
-     :rules        [[:derived {:kafka/topic {:merge-attrs     {:color  :green
-                                                               :shape  :box
-                                                               :height 0.5
-                                                               :width  4}
-                                             #_#_:show-config [:topic-name]
-                                             }
-                               :kafka/db    {:merge-attrs {:shape :cylinder}
-                                             ;; :show-config [:db-name]
-                                             }}]
-                    [:ks {:kafka/consumer1 {:merge-attrs {:color :red}}}]
-                    [:ks {:kafka/error-component :select}]]})
+  (def rules
+    (compose
+     label-edges
+     {:derived {:kafka/topic {:merge-attrs     {:color  :green
+                                                :shape  :box
+                                                :height 0.5
+                                                :width  4}
+                              #_#_:show-config [:topic-name]
+                              }
+                :kafka/db    {:merge-attrs {:shape :cylinder}
+                              ;; :show-config [:db-name]
+                              }}
+      :ks      {:kafka/consumer1       {:merge-attrs {:color :red}}
+                ;; :kafka/error-component :select
+                }}))
 
 
   (def g (config->graph config))
 
   (transform-graph g rules)
 
-  (-> config config->graph (graph->dot opts) (create-img "sys.png"))
+  (-> config config->graph (graph->dot rules) (create-img "sys.png"))
 
   (xdg-open "sys.png")
 
