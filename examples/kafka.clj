@@ -1,15 +1,30 @@
 (ns kafka
   (:require [integrant.core :as ig]
-            [madstap.igviz :as igviz]))
+            [madstap.igviz :as igviz]
+            [medley.core :as medley]))
 
 (defmacro noop-keys [& ks]
   `(do ~@(map (fn [k] `(defmethod ig/init-key ~k ~@'[[_ x] x])) ks)))
 
 (noop-keys ::db ::server ::cache ::consumer ::producer ::topic
-           ::error-component ::success-component)
+           ::error-component ::success-component ::elasticsearch)
 
 (derive ::error-component :duct/daemon)
 (derive ::success-component :duct/daemon)
+
+(def sconf
+  {::db     {:url "..."}
+   ::cache  {:url "..."}
+   ::server {:port  1234
+             :db    (ig/ref ::db)
+             :cache (ig/ref ::cache)}})
+
+(def sconf2
+  (-> sconf
+      (dissoc ::cache)
+      (medley/dissoc-in [::server :cache])
+      (assoc ::elasticsearch {:url "..."})
+      (assoc-in [::server :elastic] (ig/ref ::elasticsearch))))
 
 (def config
   {::db                     {:url "..."}

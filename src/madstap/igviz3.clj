@@ -19,16 +19,16 @@
        (into (sorted-set))))
 
 (defn config->nodes [config]
-  (mapv (fn [[k conf]]
-          (let [namee (pr-str k)]
-            #:igviz.node{:key             k
-                         :config          conf
-                         :required        (required-namespaces k)
-                         :refs            (set (dfs ig/reflike? conf))
-                         :id              (#'ig/normalize-key k)
-                         :name            namee
-                         :igviz.dot/attrs {:label namee}}))
-        config))
+  (set (map (fn [[k conf]]
+              (let [namee (pr-str k)]
+                #:igviz.node{:key             k
+                             :config          conf
+                             :required        (required-namespaces k)
+                             :refs            (set (dfs ig/reflike? conf))
+                             :id              (#'ig/normalize-key k)
+                             :name            namee
+                             :igviz.dot/attrs {:label namee}}))
+            config)))
 
 (defn dependencies->edges [mm]
   (vec (for [[k vs] mm, v vs] [k v])))
@@ -57,17 +57,17 @@
         nodes     (config->nodes config)
         key->node (medley/index-by :igviz.node/key nodes)
         edges
-        (mapv (fn [[src dest :as edge]]
-                (let [refs                    (edge-refs key->node edge)
-                      [src-id dest-id :as id] (mapv #'ig/normalize-key edge)]
-                  #:igviz.edge{:src             src
-                               :src-id          src-id
-                               :dest            dest
-                               :dest-id         dest-id
-                               :edge            edge
-                               :id              id
-                               :refs            refs}))
-              edges*)]
+        (set (map (fn [[src dest :as edge]]
+                    (let [refs                    (edge-refs key->node edge)
+                          [src-id dest-id :as id] (mapv #'ig/normalize-key edge)]
+                      #:igviz.edge{:src             src
+                                   :src-id          src-id
+                                   :dest            dest
+                                   :dest-id         dest-id
+                                   :edge            edge
+                                   :id              id
+                                   :refs            refs}))
+                  edges*))]
     #:igviz{:nodes nodes, :edges edges}))
 
 (defn create-img [dot file]
@@ -78,6 +78,15 @@
   "Select a part of the graph"
   {:arglists '([op graph selector])}
   (fn [op _ _] op))
+
+(defmulti select-transform
+  "Used if a select needs to transform the graph as well.
+  (For example selecting nodes that aren't in the graph.)
+  Defaults to a noop."
+  {:arglists '([op graph selected])}
+  (fn [op _ _] op))
+
+(defmethod select-transform :default [_ graph _] graph)
 
 (defmulti transform
   "Transform a selected part of the graph"
@@ -204,7 +213,7 @@
                (let [ent-kind (selected-kind->entity-kind kind)]
                  (assoc g ent-kind (update-entities g ent-kind ks f args))))
              graph
-             selected))
+             (select-keys selected (keys selected-kind->entity-kind))))
 
 (defmethod transform :merge-attrs
   [_ graph selected attrs]
@@ -219,9 +228,10 @@
     [selector selector-arg transform transform-arg]))
 
 (defn apply-rules [graph rules]
-  (reduce (fn [g [sel sel-arg trans trans-arg]]
-            (let [selected (select sel g sel-arg)]
-              (transform trans g selected trans-arg)))
+  (reduce (fn [g1 [sel sel-arg trans trans-arg]]
+            (let [selected (select sel g1 sel-arg)
+                  g2       (select-transform sel g1 selected)]
+              (transform trans g2 selected trans-arg)))
           graph
           (expand-rules rules)))
 
@@ -250,7 +260,7 @@
   (future (sh/sh "xdg-open" path)))
 
 (defmethod transform :label-refs
-  [op graph selected _]
+  [_ graph selected _]
   (update-selected graph selected
                    (fn [entity]
                      (update-in entity [:igviz.dot/attrs :label]
@@ -263,14 +273,60 @@
 (def label-edges
   {:all-edges {nil {:label-refs nil}}})
 
+(defmethod select :removed*
+  [_ graph old-graph]
+  (let [new (graph->selection graph)
+        old (graph->selection old-graph)]
+    (merge-with set/difference new old)))
+
+(defmethod select :removed
+  [_ graph old-config]
+  (select :removed* graph (config->graph old-config)))
+
+(defmethod select :added*
+  [_ graph old-graph]
+  (let [new (graph->selection graph)
+        old (graph->selection old-graph)]
+    (-> (merge-with set/difference old new)
+        (assoc ::old-graph old-graph))))
+
+(defmethod select :added
+  [_ graph old-config]
+  (select :added* graph (config->graph old-config)))
+
+(defn- into-graph [g1 g2]
+  (-> g1
+      (update :igviz/nodes #(->> (concat % (:igviz/nodes g2))
+                                 (medley/distinct-by :igviz.node/key)
+                                 set))
+      (update :igviz/edges #(->> (concat % (:igviz/edges g2))
+                                 (medley/distinct-by :igviz.edge/edge)
+                                 set))))
+
+(defmethod select-transform :added*
+  [_ graph {::keys [old-graph] :as x}]
+  (into-graph graph old-graph))
+
+(defmethod select-transform :added
+  [_ graph {::keys [old-config] :as selected}]
+  (let [g (config->graph old-config)]
+    (select-transform :added* graph (assoc selected ::old-graph g))))
+
+(defn diff* [old-graph]
+  {:added*   {old-graph {:merge-attrs {:color :green}}}
+   :removed* {old-graph {:merge-attrs {:color :red}}}})
+
+(defn diff [old-config]
+  (diff* (config->graph old-config)))
+
 (comment
   (require '[madstap.comfy :refer [defs]]
-           '[kafka :refer [config]])
+           '[kafka :refer [config sconf sconf2]])
 
   (def rules
     (compose
      label-edges
-     {:derived {:kafka/topic {:merge-attrs     {:color  :green
+     {:derived {:kafka/topic {:merge-attrs     {;; :color  :green
                                                 :shape  :box
                                                 :height 0.5
                                                 :width  4}
@@ -279,16 +335,16 @@
                 :kafka/db    {:merge-attrs {:shape :cylinder}
                               ;; :show-config [:db-name]
                               }}
-      :ks      {:kafka/consumer1       {:merge-attrs {:color :red}}
+      :ks      {:kafka/consumer1 {:merge-attrs {:color :red}}
                 ;; :kafka/error-component :select
-                }}))
-
+                }}
+     (diff sconf2)))
 
   (def g (config->graph config))
 
   (transform-graph g rules)
 
-  (-> config config->graph (graph->dot rules) (create-img "sys.png"))
+  (-> sconf config->graph (graph->dot rules) (create-img "sys.png"))
 
   (xdg-open "sys.png")
 
