@@ -273,26 +273,26 @@
 (def label-edges
   {:all-edges {nil {:label-refs nil}}})
 
-(defmethod select :removed*
+(defmethod select :added*
   [_ graph old-graph]
   (let [new (graph->selection graph)
         old (graph->selection old-graph)]
     (merge-with set/difference new old)))
 
-(defmethod select :removed
+(defmethod select :added
   [_ graph old-config]
-  (select :removed* graph (config->graph old-config)))
+  (select :added* graph (config->graph old-config)))
 
-(defmethod select :added*
+(defmethod select :removed*
   [_ graph old-graph]
   (let [new (graph->selection graph)
         old (graph->selection old-graph)]
     (-> (merge-with set/difference old new)
         (assoc ::old-graph old-graph))))
 
-(defmethod select :added
+(defmethod select :removed
   [_ graph old-config]
-  (select :added* graph (config->graph old-config)))
+  (select :removed* graph (config->graph old-config)))
 
 (defn- into-graph [g1 g2]
   (-> g1
@@ -303,14 +303,14 @@
                                  (medley/distinct-by :igviz.edge/edge)
                                  set))))
 
-(defmethod select-transform :added*
+(defmethod select-transform :removed*
   [_ graph {::keys [old-graph] :as x}]
   (into-graph graph old-graph))
 
-(defmethod select-transform :added
+(defmethod select-transform :removed
   [_ graph {::keys [old-config] :as selected}]
   (let [g (config->graph old-config)]
-    (select-transform :added* graph (assoc selected ::old-graph g))))
+    (select-transform :removed* graph (assoc selected ::old-graph g))))
 
 (defn diff* [old-graph]
   {:added*   {old-graph {:merge-attrs {:color :green}}}
@@ -321,11 +321,11 @@
 
 (comment
   (require '[madstap.comfy :refer [defs]]
-           '[kafka :refer [config sconf sconf2]])
+           '[kafka :refer [config sconf-old sconf-new]])
 
   (def rules
     (compose
-     label-edges
+     ;; label-edges
      {:derived {:kafka/topic {:merge-attrs     {;; :color  :green
                                                 :shape  :box
                                                 :height 0.5
@@ -338,13 +338,13 @@
       :ks      {:kafka/consumer1 {:merge-attrs {:color :red}}
                 ;; :kafka/error-component :select
                 }}
-     (diff sconf2)))
+     (diff sconf-old)))
 
   (def g (config->graph config))
 
   (transform-graph g rules)
 
-  (-> sconf config->graph (graph->dot rules) (create-img "sys.png"))
+  (-> sconf-new config->graph (graph->dot rules) (create-img "sys.png"))
 
   (xdg-open "sys.png")
 

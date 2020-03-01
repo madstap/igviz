@@ -12,15 +12,15 @@
 (derive ::error-component :duct/daemon)
 (derive ::success-component :duct/daemon)
 
-(def sconf
+(def sconf-old
   {::db     {:url "..."}
    ::cache  {:url "..."}
    ::server {:port  1234
              :db    (ig/ref ::db)
              :cache (ig/ref ::cache)}})
 
-(def sconf2
-  (-> sconf
+(def sconf-new
+  (-> sconf-old
       (dissoc ::cache)
       (medley/dissoc-in [::server :cache])
       (assoc ::elasticsearch {:url "..."})
