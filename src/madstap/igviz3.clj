@@ -8,7 +8,11 @@
    madstap.igviz.spec
    [clojure.java.shell :as sh]
    [weavejester.dependency :as dep]
-   [clojure.set :as set]))
+   [dorothy.jvm :as dot.jvm]
+   [clojure.java.browse :as java.browse]
+   [clojure.set :as set])
+  (:import
+   (java.io File)))
 
 (defn dfs [pred coll]
   (filter pred (tree-seq coll? seq coll)))
@@ -319,13 +323,46 @@
 (defn diff [old-config]
   (diff* (config->graph old-config)))
 
+(defn new-file [path format]
+  (if (nil? path)
+    (File/createTempFile (str (gensym "igviz-")) (str "." (name format)))
+    (File. path)))
+
+(defn dot->image! [dot {:keys [format open? save-as]}]
+  (let [file (new-file save-as format)
+        url  (.toURL file)]
+    (dot.jvm/save! dot file {:format format})
+    (when open? (java.browse/browse-url url))
+    nil))
+
+(def default-opts
+  {:format :png
+   :open?  true})
+
+(defn viz
+  ([config opts]
+   (viz config {} opts))
+  ([config rules {:keys [format open? save-as]
+                  ;; Just for documentation,
+                  ;; default-opts is the source of truth.
+                  ;; They should be in sync.
+                  :or   {format :png
+                         open?  true}
+                  :as   opts}]
+   (-> config
+       config->graph
+       (graph->dot rules)
+       (dot->image! (merge default-opts opts))
+       future)))
+
 (comment
   (require '[madstap.comfy :refer [defs]]
            '[kafka :refer [config sconf-old sconf-new]])
 
   (def rules
     (compose
-     ;; label-edges
+     (diff sconf-old)
+     label-edges
      {:derived {:kafka/topic {:merge-attrs     {;; :color  :green
                                                 :shape  :box
                                                 :height 0.5
@@ -338,11 +375,13 @@
       :ks      {:kafka/consumer1 {:merge-attrs {:color :red}}
                 ;; :kafka/error-component :select
                 }}
-     (diff sconf-old)))
+     ))
 
   (def g (config->graph config))
 
   (transform-graph g rules)
+
+  (viz sconf-new rules {:save-as "sys.png"})
 
   (-> sconf-new config->graph (graph->dot rules) (create-img "sys.png"))
 
