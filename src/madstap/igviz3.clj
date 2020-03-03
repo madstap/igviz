@@ -263,6 +263,18 @@
 (defn xdg-open [path]
   (future (sh/sh "xdg-open" path)))
 
+(defn config-str [config ks]
+  (->> ks
+       (map #(let [[k v] (find config %)] [(or k %) v]))
+       (map (fn [[k v]] (pr-str k v)))
+       (str/join "\n")))
+
+(defmethod transform :show-config
+  [_ graph selected ks]
+  (update-selected graph selected
+                   (fn [{:keys [igviz.node/config] :as node}]
+                     (update-in node [:igviz.dot/attrs :label] str "\n" (config-str config ks)))))
+
 (defmethod transform :label-refs
   [_ graph selected _]
   (update-selected graph selected
@@ -323,10 +335,14 @@
 (defn diff [old-config]
   (diff* (config->graph old-config)))
 
+(defn add-extension [s extension]
+  (cond-> s (not (str/ends-with? s extension)) (str extension)))
+
 (defn new-file [path format]
-  (if (nil? path)
-    (File/createTempFile (str (gensym "igviz-")) (str "." (name format)))
-    (File. path)))
+  (let [extension (str "." (name format))]
+    (if (nil? path)
+      (File/createTempFile (str (gensym "igviz-")) extension)
+      (File. (add-extension path extension)))))
 
 (defn dot->image! [dot {:keys [format open? save-as]}]
   (let [file (new-file save-as format)
@@ -370,21 +386,18 @@
                               #_#_:show-config [:topic-name]
                               }
                 :kafka/db    {:merge-attrs {:shape :cylinder}
-                              ;; :show-config [:db-name]
+                              :show-config [:db-name :wat]
                               }}
       :ks      {:kafka/consumer1 {:merge-attrs {:color :red}}
                 ;; :kafka/error-component :select
                 }}
      ))
 
-  (def g (config->graph config))
+  (def g (config->graph sconf-new))
 
-  (transform-graph g rules)
+  (apply-rules g rules)
 
-  (viz sconf-new rules {:save-as "sys.png"})
-
-  (-> sconf-new config->graph (graph->dot rules) (create-img "sys.png"))
-
-  (xdg-open "sys.png")
+  (defn f []
+    (viz sconf-new rules {:save-as "sys.png"}))
 
   )

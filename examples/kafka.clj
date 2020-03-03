@@ -13,7 +13,8 @@
 (derive ::success-component :duct/daemon)
 
 (def sconf-old
-  {::db     {:url "..."}
+  {::db     {:url     "..."
+             :db-name "foo-db"}
    ::cache  {:url "..."}
    ::server {:port  1234
              :db    (ig/ref ::db)
