@@ -336,7 +336,7 @@
   (diff* (config->graph old-config)))
 
 (defn add-extension [s extension]
-  (cond-> s (not (str/ends-with? s extension)) (str extension)))
+  (str s (when-not (str/ends-with? s extension) extension)))
 
 (defn new-file [path format]
   (let [extension (str "." (name format))]
@@ -345,11 +345,13 @@
       (File. (add-extension path extension)))))
 
 (defn dot->image! [dot {:keys [format open? save-as]}]
-  (let [file (new-file save-as format)
-        url  (.toURL file)]
+  (let [file (new-file save-as format)]
     (dot.jvm/save! dot file {:format format})
-    (when open? (java.browse/browse-url url))
+    (when open? (java.browse/browse-url (.toURL file)))
     nil))
+
+(defn config->dot [config rules]
+  (-> config config->graph (graph->dot rules)))
 
 (def default-opts
   {:format :png
@@ -365,9 +367,9 @@
                   :or   {format :png
                          open?  true}
                   :as   opts}]
+   ;; TODO: Save as .dot
    (-> config
-       config->graph
-       (graph->dot rules)
+       (config->dot rules)
        (dot->image! (merge default-opts opts))
        future)))
 
