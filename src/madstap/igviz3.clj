@@ -82,8 +82,8 @@
                                :refs            refs}))
               edges*)]
     (println "Edges: " (prn-str edges))
-    (println "Edges set: " (prn-str (set edges)))
-    #:igviz{:nodes nodes, :edges (set edges)}))
+    ;; (println "Edges set: " (prn-str (set edges)))
+    #:igviz{:nodes nodes, :edges (into #{} edges)}))
 
 
 (defmulti select
