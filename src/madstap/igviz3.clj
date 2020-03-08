@@ -55,24 +55,26 @@
 (defn normalize-key [k]
   (#'ig/normalize-key k))
 
+(defonce wtf (atom nil))
+
 (defn config->graph [config]
-  (println "config->graph, config: " config)
+  ;; (println "config->graph, config: " config)
   (let [edges*    (-> config
                       (ig/dependency-graph)
                       :dependencies
                       (dependencies->edges))
-        _ (do (println "Edges*: ") (prn edges*))
+        ;; _ (do (println "Edges*: ") (prn edges*))
         nodes     (config->nodes config)
-        _ (do (println "Nodes: ") (prn nodes))
+        ;; _ (do (println "Nodes: ") (prn nodes))
         key->node (medley/index-by :igviz.node/key nodes)
-        _ (do (println "key->node: ") (prn key->node))
+        ;; _ (do (println "key->node: ") (prn key->node))
         edges
         (mapv (fn make-edge [[src dest :as edge]]
-                (println "make-edge, edge: " (pr-str edge))
+                ;; (println "make-edge, edge: " (pr-str edge))
                 (let [refs                    (edge-refs key->node edge)
-                      _ (do (println "refs: ") (prn refs))
+                      ;; _ (do (println "refs: ") (prn refs))
                       [src-id dest-id :as id] (mapv normalize-key edge)]
-                  (println "id: " (pr-str id))
+                  ;; (println "id: " (pr-str id))
                   #:igviz.edge{:src             src
                                :src-id          src-id
                                :dest            dest
@@ -81,11 +83,12 @@
                                :id              id
                                :refs            refs}))
               edges*)]
-    (println "Edges: " (prn-str edges))
+    ;; (println "Edges: " (prn-str edges))
     ;; (println "Edges set: " (prn-str (reduce conj #{} edges)))
     #:igviz{:nodes nodes, :edges (reduce (fn [acc x]
-                                           (println "acc: " (pr-str acc))
-                                           (println "x: " (pr-str x))
+                                           (reset! wtf {:acc acc :x x})
+                                           ;; (println "acc: " (pr-str acc))
+                                           ;; (println "x: " (pr-str x))
                                            (conj acc x))
                                          #{}, edges)}))
 
