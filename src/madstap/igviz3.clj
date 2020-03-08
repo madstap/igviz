@@ -53,6 +53,9 @@
     (ref-str (first refs))
     (str "#{" (->> refs (map ref-str) (str/join ", ")) "}")))
 
+(defn normalize-key [k]
+  (#'ig/normalize-key k))
+
 (defn config->graph [config]
   (let [edges*    (-> config
                       (ig/dependency-graph)
@@ -63,7 +66,7 @@
         edges
         (set (map (fn make-edge [[src dest :as edge]]
                     (let [refs                    (edge-refs key->node edge)
-                          [src-id dest-id :as id] (mapv #'ig/normalize-key edge)]
+                          [src-id dest-id :as id] (mapv normalize-key edge)]
                       #:igviz.edge{:src             src
                                    :src-id          src-id
                                    :dest            dest
