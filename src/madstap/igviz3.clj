@@ -62,27 +62,28 @@
                       (ig/dependency-graph)
                       :dependencies
                       (dependencies->edges))
-        _ (do (println "Edges: ") (prn edges*))
+        _ (do (println "Edges*: ") (prn edges*))
         nodes     (config->nodes config)
         _ (do (println "Nodes: ") (prn nodes))
         key->node (medley/index-by :igviz.node/key nodes)
         _ (do (println "key->node: ") (prn key->node))
         edges
-        (set (map (fn make-edge [[src dest :as edge]]
-                    (println "make-edge, edge: " (pr-str edge))
-                    (let [refs                    (edge-refs key->node edge)
-                          _ (do (println "refs: ") (prn refs))
-                          [src-id dest-id :as id] (mapv normalize-key edge)]
-                      (println "id: " (pr-str id))
-                      #:igviz.edge{:src             src
-                                   :src-id          src-id
-                                   :dest            dest
-                                   :dest-id         dest-id
-                                   :edge            edge
-                                   :id              id
-                                   :refs            refs}))
-                  edges*))]
-    #:igviz{:nodes nodes, :edges edges}))
+        (map (fn make-edge [[src dest :as edge]]
+               (println "make-edge, edge: " (pr-str edge))
+               (let [refs                    (edge-refs key->node edge)
+                     _ (do (println "refs: ") (prn refs))
+                     [src-id dest-id :as id] (mapv normalize-key edge)]
+                 (println "id: " (pr-str id))
+                 #:igviz.edge{:src             src
+                              :src-id          src-id
+                              :dest            dest
+                              :dest-id         dest-id
+                              :edge            edge
+                              :id              id
+                              :refs            refs}))
+             edges*)]
+    (println "Edges: " (prn-str edges))
+    #:igviz{:nodes nodes, :edges (set edges)}))
 
 (defn create-img [dot file]
   (io/copy (tangle/dot->image dot "png")
