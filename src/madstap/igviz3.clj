@@ -57,12 +57,16 @@
   (#'ig/normalize-key k))
 
 (defn config->graph [config]
+  (println "config->graph, config: " config)
   (let [edges*    (-> config
                       (ig/dependency-graph)
                       :dependencies
                       (dependencies->edges))
+        _ (do (println "Edges: ") (prn edges*))
         nodes     (config->nodes config)
+        _ (do (println "Nodes: ") (prn nodes))
         key->node (medley/index-by :igviz.node/key nodes)
+        _ (do (println "key->node: ") (prn key->node))
         edges
         (set (map (fn make-edge [[src dest :as edge]]
                     (let [refs                    (edge-refs key->node edge)
