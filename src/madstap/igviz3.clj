@@ -61,7 +61,7 @@
         nodes     (config->nodes config)
         key->node (medley/index-by :igviz.node/key nodes)
         edges
-        (set (map (fn [[src dest :as edge]]
+        (set (map (fn make-edge [[src dest :as edge]]
                     (let [refs                    (edge-refs key->node edge)
                           [src-id dest-id :as id] (mapv #'ig/normalize-key edge)]
                       #:igviz.edge{:src             src
