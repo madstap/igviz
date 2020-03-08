@@ -1,6 +1,5 @@
 (ns madstap.igviz3
   (:require
-   [clojure.java.io :as io]
    [tangle.core :as tangle]
    [integrant.core :as ig]
    [medley.core :as medley]
@@ -85,9 +84,6 @@
     (println "Edges: " (prn-str edges))
     #:igviz{:nodes nodes, :edges (set edges)}))
 
-(defn create-img [dot file]
-  (io/copy (tangle/dot->image dot "png")
-           (io/file file)))
 
 (defmulti select
   "Select a part of the graph"
