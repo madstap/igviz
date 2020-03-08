@@ -332,9 +332,9 @@
   (get-method ig/init-key :kafka/foo-topic)
 
   (def *s
-    (eog "examples/hello-s.png")))
+    (eog "examples/hello-s.png"))
 
-@*s
+  @*s)
 
 
 
