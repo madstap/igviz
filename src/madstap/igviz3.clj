@@ -69,8 +69,11 @@
         _ (do (println "key->node: ") (prn key->node))
         edges
         (set (map (fn make-edge [[src dest :as edge]]
+                    (println "make-edge, edge: " (pr-str edge))
                     (let [refs                    (edge-refs key->node edge)
+                          _ (do (println "refs: ") (prn refs))
                           [src-id dest-id :as id] (mapv normalize-key edge)]
+                      (println "id: " (pr-str id))
                       #:igviz.edge{:src             src
                                    :src-id          src-id
                                    :dest            dest
