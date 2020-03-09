@@ -39,7 +39,7 @@
 (defn edge-refs [key->node [src dest]]
   (->> (:igviz.node/refs (key->node src))
        (filter #(ig/derived-from? dest (ig/ref-key %)))
-       (into (sorted-set-by ig/ref-key))))
+       (set)))
 
 (defn ref-str [reflike]
   (str (cond (ig/ref? reflike)    "#ig/ref"
@@ -52,47 +52,26 @@
     (ref-str (first refs))
     (str "#{" (->> refs (map ref-str) (str/join ", ")) "}")))
 
-(defn normalize-key [k]
-  (#'ig/normalize-key k))
-
-(defonce wtf (atom nil))
-
 (defn config->graph [config]
-  ;; (println "config->graph, config: " config)
   (let [edges*    (-> config
                       (ig/dependency-graph)
                       :dependencies
                       (dependencies->edges))
-        ;; _ (do (println "Edges*: ") (prn edges*))
         nodes     (config->nodes config)
-        ;; _ (do (println "Nodes: ") (prn nodes))
         key->node (medley/index-by :igviz.node/key nodes)
-        ;; _ (do (println "key->node: ") (prn key->node))
         edges
-        (mapv (fn make-edge [[src dest :as edge]]
-                ;; (println "make-edge, edge: " (pr-str edge))
+        (mapv (fn [[src dest :as edge]]
                 (let [refs                    (edge-refs key->node edge)
-                      ;; _ (do (println "refs: ") (prn refs))
-                      [src-id dest-id :as id] (mapv normalize-key edge)]
-                  ;; (println "id: " (pr-str id))
+                      [src-id dest-id :as id] (mapv #'ig/normalize-key edge)]
                   #:igviz.edge{:src             src
                                :src-id          src-id
                                :dest            dest
                                :dest-id         dest-id
                                :edge            edge
                                :id              id
-                               ;; :refs            refs
-                               }))
+                               :refs            refs}))
               edges*)]
-    ;; (println "Edges: " (prn-str edges))
-    ;; (println "Edges set: " (prn-str (reduce conj #{} edges)))
-    #:igviz{:nodes nodes, :edges (reduce (fn [acc x]
-                                           (reset! wtf {:acc acc :x x})
-                                           ;; (println "acc: " (pr-str acc))
-                                           ;; (println "x: " (pr-str x))
-                                           (conj acc x))
-                                         #{}, edges)}))
-
+    #:igviz{:nodes nodes, :edges (set edges)}))
 
 (defmulti select
   "Select a part of the graph"
