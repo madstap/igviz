@@ -81,7 +81,8 @@
                                :dest-id         dest-id
                                :edge            edge
                                :id              id
-                               :refs            refs}))
+                               ;; :refs            refs
+                               }))
               edges*)]
     ;; (println "Edges: " (prn-str edges))
     ;; (println "Edges set: " (prn-str (reduce conj #{} edges)))
