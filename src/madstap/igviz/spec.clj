@@ -61,7 +61,7 @@
   keyword?)
 
 (s/def :igviz/transformation
-  (s/tuple :igviz/selector :igviz/trans))
+  (s/tuple :igviz/selector :igviz/transform))
 
 
 

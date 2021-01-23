@@ -1,16 +1,17 @@
 {:paths   ["src"]
  :deps    {org.clojure/clojure         {:mvn/version "1.10.1"}
-           org.clojure/alpha.spec
-           {:git/url "https://github.com/clojure/spec-alpha2.git"
-            :sha     "b644e4d8c5553e10544d920306690fffe9b53e15"}
            org.clojure/tools.namespace {:mvn/version "0.3.1"}
-           ubergraph                   {:mvn/version "0.8.2"}
-           integrant                   {:mvn/version "0.8.0"}
+           ubergraph/ubergraph         {:mvn/version "0.8.2"}
+           integrant/integrant         {:mvn/version "0.8.0"}
            integrant/repl              {:mvn/version "0.3.1"}
-           dorothy                     {:mvn/version "0.0.7"}
-           madstap/comfy               {:mvn/version "1.0.5"}
-           medley                      {:mvn/version "1.2.0"}
-           rhizome                     {:mvn/version "0.2.9"}
+           dorothy/dorothy             {:mvn/version "0.0.7"}
+           medley/medley               {:mvn/version "1.2.0"}
+           rhizome/rhizome             {:mvn/version "0.2.9"}
            macroz/tangle               {:mvn/version "0.2.2"}
-           meta-merge                  {:mvn/version "1.0.0"}}
- :aliases {:dev {:extra-paths ["examples"]}}}
+           meta-merge/meta-merge       {:mvn/version "1.0.0"}}
+ :aliases {:dev  {:extra-paths ["examples"]
+                  :extra-deps  {madstap/comfy {:mvn/version "1.0.5"}
+                                org.clojure/alpha.spec
+                                {:git/url "https://github.com/clojure/spec-alpha2.git"
+                                 :sha     "b644e4d8c5553e10544d920306690fffe9b53e15"}}}
+           :test {:extra-paths ["test"]}}}

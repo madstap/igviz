@@ -1,6 +1,6 @@
 (ns kafka
   (:require [integrant.core :as ig]
-            [madstap.igviz :as igviz]
+            [madstap.igviz.alpha :as igviz]
             [medley.core :as medley]))
 
 (defmacro noop-keys [& ks]
@@ -49,6 +49,28 @@
    [::baz-topic ::topic]    {:topic-name "baz"}})
 
 (comment
+
+  (igviz/viz sconf-new (igviz/diff sconf-old) {:open? true})
+
+  (def rules
+    (igviz/comp
+     ;;     (diff sconf-old)
+     igviz/label-edges
+     {:derived {::topic {:merge-attrs     {:shape  :box
+                                           :height 0.5
+                                           :width  4}
+                         :show-config [:topic-name]}
+                ::db    {:merge-attrs {:shape :cylinder}
+                         :show-config [:url :wat]}}
+      :ks      {::consumer1 {:merge-attrs {:color :red}}
+                ;; ::error-component :select
+                }}
+     ))
+
+
+  (igviz/viz config rules {:open? true})
+
+  (igviz/viz config {:open? true})
 
   (ig/init config)
 
