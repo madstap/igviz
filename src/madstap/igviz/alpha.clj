@@ -1,8 +1,6 @@
 (ns madstap.igviz.alpha
   (:refer-clojure :exclude [comp])
   (:require
-   [clojure.java.browse :as java.browse]
-   [clojure.java.io :as io]
    [clojure.set :as set]
    [clojure.string :as str]
    [dorothy.jvm :as dot.jvm]
@@ -10,9 +8,8 @@
    [madstap.igviz.spec]
    [medley.core :as medley]
    [tangle.core :as tangle]
-   [weavejester.dependency :as dep])
-  (:import
-   (java.io File)))
+   [weavejester.dependency :as dep]
+   [madstap.igviz.utils :as utils]))
 
 (defn dfs [pred coll]
   (filter pred (tree-seq coll? seq coll)))
@@ -337,21 +334,6 @@
   ([old-config {:keys [added removed] :or {added :green, removed :red}}]
    (diff* (config->graph old-config) {:added added, :removed removed})))
 
-(defn add-extension [s extension]
-  (str s (when-not (str/ends-with? s extension) extension)))
-
-(defn extension
-  [format]
-  (str "." (name format)))
-
-(defn temp-file [format]
-  (File/createTempFile (str (gensym "igviz-")) (extension format)))
-
-(defn new-file [path format]
-  (if (nil? path)
-    (temp-file format)
-    (File. ^String (add-extension path (extension format)))))
-
 (defn config->dot [config rules]
   (-> config config->graph (graph->dot rules)))
 
@@ -365,14 +347,6 @@
   ([config rules {:keys [format] :as opts}]
    (cond-> (config->dot config rules)
      (not= format :dot) (dot.jvm/render opts))))
-
-(defn save-bytes!
-  [file bytes]
-  (with-open [output (io/output-stream file)]
-    (io/copy bytes output)))
-
-(defn open! [^File file]
-  (future (java.browse/browse-url (.toURL file))))
 
 (defn viz
   "Vizualize an integrant configuration.
@@ -403,6 +377,6 @@
                   :as   opts}]
    (let [graph (render config rules (merge default-opts opts))
          file (when (or save-as open?)
-                (doto (new-file save-as format) (save-bytes! graph)))]
-     (when open? (open! file))
+                (utils/save-graph! graph save-as format))]
+     (when open? (utils/open! file))
      graph)))
