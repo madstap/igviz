@@ -334,7 +334,7 @@
 (defn new-file [path format]
   (if (nil? path)
     (temp-file format)
-    (File. (add-extension path (extension format)))))
+    (File. ^String (add-extension path (extension format)))))
 
 (defn config->dot [config rules]
   (-> config config->graph (graph->dot rules)))
@@ -355,7 +355,7 @@
   (with-open [output (io/output-stream file)]
     (io/copy bytes output)))
 
-(defn open! [file]
+(defn open! [^File file]
   (future (java.browse/browse-url (.toURL file))))
 
 (defn viz
