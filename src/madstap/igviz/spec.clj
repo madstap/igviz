@@ -1,5 +1,5 @@
 (ns madstap.igviz.spec
-  (:require [clojure.alpha.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [integrant.core :as ig]))
 
 (s/def :igviz/config
