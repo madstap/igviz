@@ -119,6 +119,22 @@
                     (dep/transitive-dependencies-set derived))]
     (into derived deps)))
 
+(defn dependents-inclusive [{:igviz/keys [nodes] :as graph} ks include-refsets?]
+  (let [derived (derived-nodes nodes ks)
+        deps    (-> graph
+                    graph->config
+                    (ig/dependency-graph {:include-refsets? include-refsets?})
+                    (dep/transitive-dependents-set derived))]
+    (into derived deps)))
+
+(defmethod select :dependents
+  [_ {:igviz/keys [edges] :as graph} ks]
+  (let [ks (if (set? ks) ks #{ks})
+        node-deps (dependents-inclusive graph ks true)]
+    #:igviz.selected{:nodes node-deps
+                     :edges (fully-connected-edges node-deps
+                                                   (map :igviz.edge/edge edges))}))
+
 ;; TODO: Better names for :dependencies and :ks
 (defmethod select :dependencies
   [_ {:igviz/keys [edges] :as graph} ks]
