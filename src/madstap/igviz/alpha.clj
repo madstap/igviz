@@ -14,11 +14,6 @@
   (:import
    (java.io File)))
 
-(defn save-bytes!
-  [file bytes]
-  (with-open [output (io/output-stream file)]
-    (io/copy bytes output)))
-
 (defn dfs [pred coll]
   (filter pred (tree-seq coll? seq coll)))
 
@@ -355,8 +350,19 @@
    (cond-> (config->dot config rules)
      (not= format :dot) (dot.jvm/render opts))))
 
+(defn save-bytes!
+  [file bytes]
+  (with-open [output (io/output-stream file)]
+    (io/copy bytes output)))
+
+(defn open! [file]
+  (future (java.browse/browse-url (.toURL file))))
+
 (defn viz
   "Vizualize an integrant configuration.
+
+  Returns the generated graph, which will be a string if the format is svg,
+  or a byte-array if not.
 
   Options:
 
@@ -382,5 +388,5 @@
    (let [graph (render config rules (merge default-opts opts))
          file (when (or save-as open?)
                 (doto (new-file save-as format) (save-bytes! graph)))]
-     (when open? (future (java.browse/browse-url (.toURL file))))
-     file)))
+     (when open? (open! file))
+     graph)))
