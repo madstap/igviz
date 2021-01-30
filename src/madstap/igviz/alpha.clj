@@ -267,6 +267,52 @@
                                        (refs-str (or (:igviz.edge/refs entity)
                                                      (:igviz.node/refs entity)))))))))
 
+(defn merge-edges [{node-id :igviz.node/id} edges]
+  (for [{edge1-dest-id :igviz.edge/dest-id :as edge1} edges
+        :when (= edge1-dest-id node-id)
+        {edge2-src-id :igviz.edge/src-id :as edge2} edges
+        :when (= edge2-src-id node-id)
+        :let [src (:igviz.edge/src edge1)
+              src-id (:igviz.edge/src-id edge1)
+              dest (:igviz.edge/dest edge2)
+              dest-id (:igviz.edge/dest-id edge2)]]
+    #:igviz.edge{:src src
+                 :src-id src-id
+                 :dest dest
+                 :dest-id dest-id
+                 :edge [src dest]
+                 :id [src-id dest-id]}))
+
+(defn find-node [{:igviz/keys [nodes]} node-key]
+  (medley/find-first #(= node-key (:igviz.node/key %)) nodes))
+
+(defn immediate-edge? [{edge-id :igviz.edge/id} {node-id :igviz.node/id}]
+  (contains? (set edge-id) node-id))
+
+(defn disj-by [set pred]
+  (reduce disj set (filter pred set)))
+
+;; FIXME: When a -> b -> c and also a -> c and we remove b then
+;;        a have two edges between them. We should leave only one.
+;;        (Maybe leave that configurable, but there should be a way of
+;;         deduplicating them.)
+;;        This happens because the existing edge has a :refs key, but the
+;;        new one doesn't.
+;; TODO: Accept options of some kind to style the new merged edges.
+(defn remove-node [{:igviz/keys [edges] :as graph} node-key]
+  (let [node (find-node graph node-key)
+        new-edges (->> edges
+                       (filter #(immediate-edge? % node))
+                       (merge-edges node))]
+    (-> graph
+        (update :igviz/nodes disj node)
+        (update :igviz/edges disj-by #(immediate-edge? % node))
+        (update :igviz/edges into new-edges))))
+
+(defmethod transform :remove
+  [_ graph {:igviz.selected/keys [nodes]} _]
+  (reduce remove-node graph nodes))
+
 (def label-edges
   {:all-edges {nil {:label-refs nil}}})
 

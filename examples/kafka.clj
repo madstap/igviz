@@ -43,7 +43,8 @@
                                       (ig/ref ::baz-topic)]}
    ::producer               {:topic (ig/ref ::baz-topic)}
    ::error-component        {:producer (ig/ref ::producer)
-                             :consumer (ig/ref ::consumer1)}
+                             :consumer (ig/ref ::consumer1)
+                             :foo (ig/ref ::bar-topic)}
    [::foo-topic ::topic]    {:topic-name "foo"}
    [::bar-topic ::topic]    {:topic-name "bar"}
    [::baz-topic ::topic]    {:topic-name "baz"}})
@@ -70,7 +71,13 @@
 
   (igviz/viz config rules {:open? true})
 
-  (igviz/viz config {:open? true})
+  (igviz/viz
+   config
+   {:derived {::consumer1 :remove
+              ::error-component :remove
+              ;; ::server :remove
+              }}
+   {:open? true})
 
   (ig/init config)
 
