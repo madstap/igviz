@@ -244,21 +244,6 @@
          [src-id dest-id attrs])
        edges))
 
-(defn graph->dot
-  ([graph]       (graph->dot graph {}    {}))
-  ([graph rules] (graph->dot graph rules {}))
-  ([graph rules {:keys [node]
-                 :or   {node {:shape :oval}}}]
-   (let [{:igviz/keys [nodes edges]} (apply-rules graph rules)]
-     (tangle/graph->dot
-      nodes
-      (dot-edges edges)
-      {:node             node
-       :directed?        true
-       :node->id         :igviz.node/id
-       :node->descriptor :igviz.dot/attrs
-       :edge->descriptor (fn [_ _ attrs] attrs)}))))
-
 (defn config-str [config ks]
   (->> ks
        (map #(let [[k v] (find config %)] [(or k %) v]))
@@ -334,12 +319,27 @@
   ([old-config {:keys [added removed] :or {added :green, removed :red}}]
    (diff* (config->graph old-config) {:added added, :removed removed})))
 
-(defn config->dot [config rules]
-  (-> config config->graph (graph->dot rules)))
-
 (def default-opts
   {:format :png
    :open?  false})
+
+(defn graph->dot
+  ([graph]       (graph->dot graph {}    {}))
+  ([graph rules] (graph->dot graph rules {}))
+  ([graph rules {:keys [node]
+                 :or   {node {:shape :oval}}}]
+   (let [{:igviz/keys [nodes edges]} (apply-rules graph rules)]
+     (tangle/graph->dot
+      nodes
+      (dot-edges edges)
+      {:node             node
+       :directed?        true
+       :node->id         :igviz.node/id
+       :node->descriptor :igviz.dot/attrs
+       :edge->descriptor (fn [_ _ attrs] attrs)}))))
+
+(defn config->dot [config rules]
+  (-> config config->graph (graph->dot rules)))
 
 (defn render
   ([config opts]
