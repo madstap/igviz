@@ -141,6 +141,13 @@
                      :edges (fully-connected-edges node-deps
                                                    (map :igviz.edge/edge edges))}))
 
+;; TODO: Better name for this? :connected ?
+(defmethod select :related
+  [_ graph ks]
+  (merge-with set/union
+              (select :dependencies graph ks)
+              (select :dependents graph ks)))
+
 (defmethod select :ks
   [_ {:igviz/keys [edges] :as graph} ks]
   (let [ks (if (set? ks) ks #{ks})
@@ -270,8 +277,10 @@
 (defn merge-edges [{node-id :igviz.node/id} edges]
   (for [{edge1-dest-id :igviz.edge/dest-id :as edge1} edges
         :when (= edge1-dest-id node-id)
+
         {edge2-src-id :igviz.edge/src-id :as edge2} edges
         :when (= edge2-src-id node-id)
+
         :let [src (:igviz.edge/src edge1)
               src-id (:igviz.edge/src-id edge1)
               dest (:igviz.edge/dest edge2)

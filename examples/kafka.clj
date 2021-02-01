@@ -73,10 +73,11 @@
 
   (igviz/viz
    config
-   {:derived {::consumer1 :remove
-              ::error-component :remove
+   {:derived {;; ::consumer1 :remove
+              ;; ::error-component :remove
               ;; ::server :remove
-              }}
+              }
+    :related {::consumer1 {:merge-attrs {:color :red}}}}
    {:open? true})
 
   (ig/init config)
