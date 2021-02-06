@@ -74,7 +74,26 @@
 (defmulti select
   "Select a part of the graph"
   {:arglists '([op graph selector])}
-  (fn [op _ _] op))
+  (fn [op _ selector]
+    (if (vector? selector)
+      (case (first selector)
+        :and ::and
+        :or ::or)
+      op)))
+
+(defn selected-and [selections]
+  (apply merge-with set/intersection selections))
+
+(defn selected-or [selections]
+  (apply merge-with set/union selections))
+
+(defmethod select ::and
+  [op graph [_ & selectors]]
+  (selected-and (map #(select op graph %) selectors)))
+
+(defmethod select ::or
+  [op graph [_ & selectors]]
+  (selected-or (map #(select op graph %) selectors)))
 
 (defmulti select-transform
   "Used if a select needs to transform the graph as well.
@@ -144,9 +163,8 @@
 ;; TODO: Better name for this? :connected ?
 (defmethod select :related
   [_ graph ks]
-  (merge-with set/union
-              (select :dependencies graph ks)
-              (select :dependents graph ks)))
+  (selected-or [(select :dependencies graph ks)
+                (select :dependents graph ks)]))
 
 (defmethod select :ks
   [_ {:igviz/keys [edges] :as graph} ks]
@@ -237,13 +255,13 @@
                                     transforms)]
     [selector selector-arg transform transform-arg]))
 
+(defn apply-rule [graph [selector sel-arg transformation trans-arg]]
+  (let [selected (select selector graph sel-arg)
+        g2       (select-transform selector graph selected)]
+    (transform transformation g2 selected trans-arg)))
+
 (defn apply-rules [graph rules]
-  (reduce (fn [g1 [sel sel-arg trans trans-arg]]
-            (let [selected (select sel g1 sel-arg)
-                  g2       (select-transform sel g1 selected)]
-              (transform trans g2 selected trans-arg)))
-          graph
-          (expand-rules rules)))
+  (reduce apply-rule graph (expand-rules rules)))
 
 (defn dot-edges [edges]
   (map (fn [{:igviz.edge/keys [src-id dest-id]

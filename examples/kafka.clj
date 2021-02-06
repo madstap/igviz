@@ -27,6 +27,8 @@
       (assoc ::elasticsearch {:url "..."})
       (assoc-in [::server :elastic] (ig/ref ::elasticsearch))))
 
+(derive ::consumer2 ::foo)
+
 (def config
   {::db                     {:url "..."}
    ::cache                  {:url "..."}
@@ -71,13 +73,16 @@
 
   (igviz/viz config rules {:open? true})
 
+
   (igviz/viz
    config
    {:derived {;; ::consumer1 :remove
               ;; ::error-component :remove
               ;; ::server :remove
+              [:and ::consumer ::foo] {:merge-attrs {:color :blue}}
               }
-    :related {::consumer1 {:merge-attrs {:color :red}}}}
+    :related {[:or ::consumer1 ::producer] {:merge-attrs {:color :red}}}
+    }
    {:open? true})
 
   (ig/init config)
